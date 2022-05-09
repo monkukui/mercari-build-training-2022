@@ -19,19 +19,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def get_items_json():
+    with open('items.json', 'r', encoding='utf-8') as f:
+        items_json = json.load(f)
+    return items_json
+
 @app.get("/")
 def root():
     return {"message": "Hello, world!"}
 
 @app.post("/items")
 def add_item(name: str = Form(...), category: str = Form(...)):
-    logger.info(f"Receive item: {name}, {category}")
-    with open('items.json', 'r', encoding='utf-8') as f:
-        items_json = json.load(f)
+    logger.info(f"Receive item: {name}")
+    items_json = get_items_json()
     items_json['items'].append({'name': name, 'category': category})
     with open('items.json', 'w', encoding='utf-8') as f:
         json.dump(items_json, f, indent=4)
-    return {"message": f"item received: {name}, {category}"}
+    return {"message": f"item received: {name}"}
+
+@app.get("/items")
+def get_item():
+    return get_items_json()
 
 @app.get("/image/{items_image}")
 async def get_image(items_image):
