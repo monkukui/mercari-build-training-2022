@@ -62,7 +62,7 @@ def get_item(item_id):
 def search_items(keyword: str):
     conn = sqlite3.connect(sqlite_path)
     cursor = conn.cursor()
-    cursor.execute(f"SELECT name, category FROM items WHERE name LIKE '%{keyword}%'")
+    cursor.execute("SELECT name, category FROM items WHERE name LIKE ?" , ('%' + keyword + '%', ))
     sql_res = cursor.fetchall()
     conn.close()
     result_dict = {}
