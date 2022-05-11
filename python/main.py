@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 logger = logging.getLogger("uvicorn")
-logger.level = logging.INFO
+logger.level = logging.DEBUG
 images = pathlib.Path(__file__).parent.resolve() / "image"
 origins = [ os.environ.get('FRONT_URL', 'http://localhost:3000') ]
 app.add_middleware(
@@ -43,7 +43,14 @@ def add_item(name: str = Form(...), category: str = Form(...), image: str = Form
     image_hashed = get_hash_name(image)
     conn = sqlite3.connect(sqlite_path)
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO items(name, category, image) VALUES(?, ?, ?)", (name, category, image_hashed))
+    cursor.execute("SELECT id FROM category WHERE name = ?", (category, ))
+    res = cursor.fetchall()
+    if len(res) == 0:
+        cursor.execute("INSERT INTO category(name) VALUES(?)", (category, ))
+        conn.commit()
+        cursor.execute("SELECT id FROM category WHERE name = ?", (category, ))
+        res = cursor.fetchall()
+    cursor.execute("INSERT INTO items(name, category_id, image) VALUES(?, ?, ?)", (name, res[0][0], image_hashed))
     conn.commit()
     conn.close()
     return {"message": f"item received: {name}"}
@@ -52,17 +59,17 @@ def add_item(name: str = Form(...), category: str = Form(...), image: str = Form
 def get_item(item_id):
     conn = sqlite3.connect(sqlite_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT name, category, image FROM items WHERE id = ?", (item_id,))
+    cursor.execute("SELECT items.name, category.name AS category, items.image FROM items INNER JOIN category ON items.category_id = category.id WHERE items.id = ?", (item_id,))
     sql_res = cursor.fetchall()
     conn.close()
-    result_dict = dict((key, value) for key, value in zip(['name', 'category', 'image'], sql_res))
+    result_dict = dict((key, value) for key, value in zip(['name', 'category', 'image'], sql_res[0]))
     return result_dict
 
 @app.get("/search")
 def search_items(keyword: str):
     conn = sqlite3.connect(sqlite_path)
     cursor = conn.cursor()
-    cursor.execute(f"SELECT name, category FROM items WHERE name LIKE '%{keyword}%'")
+    cursor.execute("SELECT items.name, category.name FROM items INNER JOIN category ON items.category_id = category.id WHERE items.name LIKE ?" , ('%' + keyword + '%', ))
     sql_res = cursor.fetchall()
     conn.close()
     result_dict = {}
